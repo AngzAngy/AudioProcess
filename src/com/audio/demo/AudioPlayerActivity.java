@@ -4,6 +4,7 @@ import java.io.File;
 
 import android.app.Activity;
 import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
@@ -28,7 +29,16 @@ public class AudioPlayerActivity extends Activity implements
 		findViewById(R.id.play_recoard).setOnClickListener(this);
 		mSaveFileName = getBufferDir();
 		sampleRate = 44100;
-		channel = 2;
+		channel = 1;
+	}
+
+	public void onDestroy(){
+		super.onDestroy();
+		if (mRecordJni != null) {
+			mRecordJni.stop();
+			mRecordJni.release();
+			mRecordJni = null;
+		}
 	}
 
 	public String getBufferDir() {
@@ -46,13 +56,16 @@ public class AudioPlayerActivity extends Activity implements
 	public void onClick(View v) {
 		switch (v.getId()) {
 		case R.id.start_recoard:
+			android.util.Log.e("javaLog", "java start record");
 			if (mRecordJni == null) {
 				if (channel == 1) {
+					int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
 					mRecordJni = new AudioRecordJni(mSaveFileName,
-							AudioRecordJni.CHANNEL_1, sampleRate);
+							AudioRecordJni.CHANNEL_1, sampleRate, minBufferSize);
 				} else {
+					int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
 					mRecordJni = new AudioRecordJni(mSaveFileName,
-							AudioRecordJni.CHANNEL_2, sampleRate);
+							AudioRecordJni.CHANNEL_2, sampleRate, minBufferSize);
 				}
 			}
 			mRecordJni.start();

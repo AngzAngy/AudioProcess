@@ -46,7 +46,7 @@ static SLuint32 convertSamplerate(int samplerate){
      }
  }
 JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
-  (JNIEnv *env, jobject jobj, jstring jstr, jint jchannel, jint jsampleRate){
+  (JNIEnv *env, jobject jobj, jstring jstr, jint jchannel, jint jsampleRate, jint jminBufSize){
     if(!jstr){
         LOGI("filename is null");
         return 0;
@@ -55,22 +55,28 @@ JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
         LOGI("channel is error num:%d",jchannel);
         return 0;
     }
+    if(jminBufSize<=0){
+    	LOGI("minBufferSize is error: %d",jminBufSize);
+    	return 0;
+    }
+    SLuint32 channel = (SLuint32)jchannel;
+    LOGI("channel num:%d,,sampleRate: %d,,minBufferSize: %d",channel, jsampleRate, jminBufSize);
     const char* utf8 = env->GetStringUTFChars(jstr, NULL);
 
     SLDataFormat_PCM format_pcm;
     format_pcm.formatType = SL_DATAFORMAT_PCM;
-    format_pcm.numChannels = jchannel;
+    format_pcm.numChannels = channel;
     format_pcm.samplesPerSec = convertSamplerate(jsampleRate);
     format_pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_16;
     format_pcm.containerSize = 16;
-    if(jchannel==2){
+    if(channel==2){
         format_pcm.channelMask = SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT;
     }else{
         format_pcm.channelMask = SL_SPEAKER_FRONT_CENTER;
     }
     format_pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
 
-    AudioRecord *pObj = new AudioRecord(utf8, format_pcm);
+    AudioRecord *pObj = new AudioRecord(utf8, format_pcm, jminBufSize);
 
     env->ReleaseStringUTFChars(jstr, utf8);
     return (jlong)(pObj);

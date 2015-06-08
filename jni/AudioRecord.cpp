@@ -9,26 +9,26 @@
 #define NUM_EXPLICIT_INTERFACES_FOR_RECORDER 2
 
 /* Size of the recording buffer queue */
-#define NB_BUFFERS_IN_QUEUE 1
+//#define NB_BUFFERS_IN_QUEUE 1
 /* Size of each buffer in the queue */
-#define BUFFER_SIZE_IN_SAMPLES 8192
-#define BUFFER_SIZE_IN_BYTES   (2 * BUFFER_SIZE_IN_SAMPLES)
+//#define BUFFER_SIZE_IN_SAMPLES 8192
+//#define BUFFER_SIZE_IN_BYTES   (2 * BUFFER_SIZE_IN_SAMPLES)
 
 /* Local storage for Audio data */
-int8_t pcmData[NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES];
+//int8_t pcmData[NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES];
 
 /* Callback for recording buffer queue events */
 void recCallback(SLRecordItf caller, void *pContext, SLuint32 event) {
 	if (SL_RECORDEVENT_HEADATNEWPOS & event) {
 		SLmillisecond pMsec = 0;
 		(*caller)->GetPosition(caller, &pMsec);
-		LOGI("SL_RECORDEVENT_HEADATNEWPOS current position=%ums\n", pMsec);
+		LOGI("NEWPOS current position=%ums\n", pMsec);
 	}
 
 	if (SL_RECORDEVENT_HEADATMARKER & event) {
 		SLmillisecond pMsec = 0;
 		(*caller)->GetPosition(caller, &pMsec);
- 		LOGI("SL_RECORDEVENT_HEADATMARKER current position=%ums\n", pMsec);
+ 		LOGI("MARKER current position=%ums\n", pMsec);
 	}
 }
 
@@ -37,24 +37,32 @@ void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pConte
 
 	CallbackCntxt *pCntxt = (CallbackCntxt*) pContext;
 
-	/* Save the recorded data  */
-	fwrite(pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES, 1, pCntxt->pfile);
-
-	/* Increase data pointer by buffer size */
-	pCntxt->pData += BUFFER_SIZE_IN_BYTES;
-
-	if (pCntxt->pData >= pCntxt->pDataBase + (NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES)) {
-		pCntxt->pData = pCntxt->pDataBase;
+//	if(pCntxt->isFirst){
+//		LOGI("first recBufferQueueCallback");
+//		pCntxt->isFirst = false;
+//	}else
+	{
+		/* Save the recorded data  */
+//		fwrite(pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES, 1, pCntxt->pfile);
+		fwrite(pCntxt->pDataBase, pCntxt->size, 1, pCntxt->pfile);
 	}
 
-	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES);
+	/* Increase data pointer by buffer size */
+//	pCntxt->pData += BUFFER_SIZE_IN_BYTES;
+//
+//	if (pCntxt->pData >= pCntxt->pDataBase + (NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES)) {
+//		pCntxt->pData = pCntxt->pDataBase;
+//	}
+
+//	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES);
+	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, pCntxt->size);
 
 	SLAndroidSimpleBufferQueueState recQueueState;
 	(*queueItf)->GetState(queueItf, &recQueueState);
 
 }
 
-AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm):
+AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm, int minBufferSize):
         engineObject(NULL),engineEngine(NULL),recorderObject(NULL),
         recordItf(NULL),recBuffQueueItf(NULL),configItf(NULL){
     SLEngineOption EngineOption[] = {
@@ -62,6 +70,8 @@ AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm):
         };
     SLresult result;
     memset(&ctx,0, sizeof(CallbackCntxt));
+    ctx.isFirst=true;
+
     if(!fileName){
         LOGE("FileName NULL");
         return;
@@ -141,21 +151,21 @@ AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm):
 
         /* Initialize the callback and its context for the recording buffer queue */
 
-        ctx.pDataBase = (int8_t*) &pcmData;
-        ctx.pData = ctx.pDataBase;
-        ctx.size = sizeof(pcmData);
+        ctx.pDataBase = new SLint8[minBufferSize];//(int8_t*) &pcmData;
+//        ctx.pData = ctx.pDataBase;
+        ctx.size = minBufferSize * sizeof(SLint8);
         result = (*recBuffQueueItf)->RegisterCallback(recBuffQueueItf, recBufferQueueCallback, &ctx);
         assert(SL_RESULT_SUCCESS == result);
-
-        /* Enqueue buffers to map the region of memory allocated to store the recorded data */
-        LOGI("Enqueueing buffer ");
-        for (int i = 0; i < NB_BUFFERS_IN_QUEUE; i++) {
-            LOGI("%d ", i);
-            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pData, BUFFER_SIZE_IN_BYTES);
-            assert(SL_RESULT_SUCCESS == result);
-            ctx.pData += BUFFER_SIZE_IN_BYTES;
-        }
-        ctx.pData = ctx.pDataBase;
+//
+//        /* Enqueue buffers to map the region of memory allocated to store the recorded data */
+//        LOGI("Enqueueing buffer ");
+//        for (int i = 0; i < NB_BUFFERS_IN_QUEUE; i++) {
+//            LOGI("%d ", i);
+//            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pData, BUFFER_SIZE_IN_BYTES);
+//            assert(SL_RESULT_SUCCESS == result);
+//            ctx.pData += BUFFER_SIZE_IN_BYTES;
+//        }
+//        ctx.pData = ctx.pDataBase;
 }
 
 AudioRecord::~AudioRecord(){
@@ -165,10 +175,27 @@ AudioRecord::~AudioRecord(){
 void AudioRecord::start(){
     SLresult result;
     if (recordItf != NULL) {
+        // in case already recording, stop recording and clear buffer queue
+        result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_STOPPED);
+        result = (*recBuffQueueItf)->Clear(recBuffQueueItf);
+
+
+        /* Enqueue buffers to map the region of memory allocated to store the recorded data */
+        LOGI("Enqueueing buffer ");
+//        for (int i = 0; i < NB_BUFFERS_IN_QUEUE; i++) {
+//            LOGI("%d ", i);
+//            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pData, BUFFER_SIZE_IN_BYTES);
+            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pDataBase, ctx.size);
+            assert(SL_RESULT_SUCCESS == result);
+//            ctx.pData += BUFFER_SIZE_IN_BYTES;
+//        }
+        ctx.pData = ctx.pDataBase;
+
         result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_RECORDING);
         assert(SL_RESULT_SUCCESS == result);
-        LOGI("Starting to record");
+        LOGI("Start to record");
     }
+
 }
 void AudioRecord::pause(){
     SLresult result;
@@ -208,5 +235,10 @@ void AudioRecord::release(){
         fclose(ctx.pfile);
         ctx.pfile == NULL;
     }
+    if((ctx.pDataBase != NULL)){
+    	delete [](ctx.pDataBase);
+    	ctx.pDataBase=NULL;
+    }
+    ctx.isFirst=true;
     LOGI("release record");
 }

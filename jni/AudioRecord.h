@@ -12,11 +12,12 @@ typedef struct CallbackCntxt_ {
     SLint8*   pDataBase;    // Base address of local audio data storage
     SLint8*   pData;        // Current address of local audio data storage
     FILE *pfile;
+    bool isFirst;
 } CallbackCntxt;
 
 class AudioRecord{
 public:
-    AudioRecord(const char *fileName, SLDataFormat_PCM dataFormat_PCM);
+    AudioRecord(const char *fileName, SLDataFormat_PCM dataFormat_PCM, int minBufferSize);
     ~AudioRecord();
     void start();
     void pause();

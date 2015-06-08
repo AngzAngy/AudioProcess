@@ -16,8 +16,8 @@ public class AudioRecordJni {
      * @param channel @see CHANNEL_1 @see CHANNEL_2
      * @param sampleRate audio sample rate(eg 44100)
      */
-    public AudioRecordJni(String fileName, int channel, int sampleRate){
-        mNativeObj = init(fileName, channel, sampleRate);
+    public AudioRecordJni(String fileName, int channel, int sampleRate, int minBufferSize){
+        mNativeObj = init(fileName, channel, sampleRate, minBufferSize);
     }
     
     public  void start(){
@@ -42,7 +42,7 @@ public class AudioRecordJni {
         }
     }
 
-    private static native long init(String fileName, int ch, int sampleRate);
+    private static native long init(String fileName, int ch, int sampleRate, int minBufferSize);
     private static native void start(long nativeObj);
     private static native void pause(long nativeObj);
     private static native void stop(long nativeObj);
