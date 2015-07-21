@@ -7,14 +7,19 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Process;
 import android.view.View;
+import android.widget.Toast;
 
+import com.audio.jni.AudioPreprocessJni;
 import com.audio.jni.AudioRecordJni;
+import com.audio.jni.SoundEffectJni;
 
 public class AudioPlayerActivity extends Activity implements
 		View.OnClickListener {
 	private final static String TAG = AudioPlayerActivity.class.getSimpleName();
 	private String mSaveFileName;
+	private String mDenoiseFileName;
 	private int sampleRate;
 	private int channel;
 	private AudioRecordJni mRecordJni;
@@ -26,8 +31,10 @@ public class AudioPlayerActivity extends Activity implements
 		findViewById(R.id.start_recoard).setOnClickListener(this);
 		findViewById(R.id.pause_recoard).setOnClickListener(this);
 		findViewById(R.id.stop_recoard).setOnClickListener(this);
+		findViewById(R.id.denoise_recoard).setOnClickListener(this);
 		findViewById(R.id.play_recoard).setOnClickListener(this);
-		mSaveFileName = getBufferDir();
+		mSaveFileName = getBufferDir()+"/myorig.pcm";
+		mDenoiseFileName = getBufferDir()+"/myproc.pcm";
 		sampleRate = 44100;
 		channel = 1;
 	}
@@ -39,6 +46,7 @@ public class AudioPlayerActivity extends Activity implements
 			mRecordJni.release();
 			mRecordJni = null;
 		}
+		Process.killProcess(Process.myPid());
 	}
 
 	public String getBufferDir() {
@@ -47,9 +55,7 @@ public class AudioPlayerActivity extends Activity implements
 		if (!dir.exists()) {
 			dir.mkdirs();
 		}
-
-		File fn = new File(dir, "mytest.pcm");
-		return fn.getAbsolutePath();
+		return dir.getAbsolutePath();
 	}
 
 	@Override
@@ -82,6 +88,31 @@ public class AudioPlayerActivity extends Activity implements
 				mRecordJni = null;
 			}
 			break;
+		case R.id.denoise_recoard:
+			Thread t = new Thread(){
+				public void run(){
+//					int minBufferSize = 0;
+//					if (channel == 1) {
+//						minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+//					} else {
+//						minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+//					}
+//					for(int i=-50;i<-1;i++){
+					int i = -1;
+						mDenoiseFileName = getBufferDir()+"/myproc_"+i+".pcm";
+						AudioPreprocessJni.preprocess(mSaveFileName, mDenoiseFileName, sampleRate, channel, i);
+//					}
+					runOnUiThread(new Runnable() {
+						
+						@Override
+						public void run() {
+							Toast.makeText(AudioPlayerActivity.this, "denoise finish", Toast.LENGTH_LONG).show();
+						}
+					});
+				}
+			};
+			t.start();
+			break;
 		case R.id.play_recoard:
 			MyAudioTrack track = null;
 			if (channel == 1) {
@@ -95,6 +126,7 @@ public class AudioPlayerActivity extends Activity implements
 			}
 
 			track.play();
+			break;
 		}
 	}
 }

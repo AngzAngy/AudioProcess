@@ -24,6 +24,13 @@
         android:text="停止录音"
          />
         
+       <Button
+        android:id="@+id/denoise_recoard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="录音去噪"
+         />
+
             <Button
         android:id="@+id/play_recoard"
         android:layout_width="wrap_content"
