@@ -189,7 +189,7 @@ void AudioRecord::start(){
             assert(SL_RESULT_SUCCESS == result);
 //            ctx.pData += BUFFER_SIZE_IN_BYTES;
 //        }
-        ctx.pData = ctx.pDataBase;
+//        ctx.pData = ctx.pDataBase;
 
         result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_RECORDING);
         assert(SL_RESULT_SUCCESS == result);

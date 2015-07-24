@@ -27,16 +27,16 @@ public class AudioPlayerActivity extends Activity implements
 	@Override
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
+		channel = 1;
 		setContentView(R.layout.main);
 		findViewById(R.id.start_recoard).setOnClickListener(this);
 		findViewById(R.id.pause_recoard).setOnClickListener(this);
 		findViewById(R.id.stop_recoard).setOnClickListener(this);
 		findViewById(R.id.denoise_recoard).setOnClickListener(this);
 		findViewById(R.id.play_recoard).setOnClickListener(this);
-		mSaveFileName = getBufferDir()+"/myorig.pcm";
-		mDenoiseFileName = getBufferDir()+"/myproc.pcm";
+		mSaveFileName = getBufferDir()+"/myorig_"+channel+"ch.pcm";
+		mDenoiseFileName = getBufferDir()+"/myproc_"+channel+"ch.pcm";
 		sampleRate = 44100;
-		channel = 1;
 	}
 
 	public void onDestroy(){
@@ -98,9 +98,9 @@ public class AudioPlayerActivity extends Activity implements
 //						minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
 //					}
 //					for(int i=-50;i<-1;i++){
-					int i = -1;
-						mDenoiseFileName = getBufferDir()+"/myproc_"+i+".pcm";
-						AudioPreprocessJni.preprocess(mSaveFileName, mDenoiseFileName, sampleRate, channel, i);
+//					int i = -1;
+//						mDenoiseFileName = getBufferDir()+"/myproc_"+i+".pcm";
+						AudioPreprocessJni.preprocess(mSaveFileName, mDenoiseFileName, sampleRate, 2, channel, -20);
 //					}
 					runOnUiThread(new Runnable() {
 						
@@ -117,11 +117,11 @@ public class AudioPlayerActivity extends Activity implements
 			MyAudioTrack track = null;
 			if (channel == 1) {
 				track = new MyAudioTrack(sampleRate,
-						AudioFormat.CHANNEL_CONFIGURATION_MONO,
+						AudioFormat.CHANNEL_OUT_MONO,
 						AudioFormat.ENCODING_PCM_16BIT, mSaveFileName);
 			} else {
 				track = new MyAudioTrack(sampleRate,
-						AudioFormat.CHANNEL_CONFIGURATION_STEREO,
+						AudioFormat.CHANNEL_OUT_STEREO,
 						AudioFormat.ENCODING_PCM_16BIT, mSaveFileName);
 			}
 

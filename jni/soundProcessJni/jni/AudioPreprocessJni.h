@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess
-  (JNIEnv *, jobject, jstring, jstring, jint, jint, jint);
+  (JNIEnv *, jobject, jstring, jstring, jint, jint, jint, jint);
 
 #ifdef __cplusplus
 }

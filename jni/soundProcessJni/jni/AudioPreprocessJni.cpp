@@ -6,25 +6,29 @@
 #include <stdint.h>
 
 #define NN 882
-#define FRAMESIZE_MS  20
+#define FRAMESIZE_MS  10
+#define MAX_CH 32768
 
 JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		JNIEnv *env, jobject jobj, jstring jinpcm, jstring joutpcm,
-		jint jsamRate, jint jchannelNumber, jint jnoiseSuppress) {
+		jint jsamRate, jint jBytesPerSample, jint jchannelNumber, jint jnoiseSuppress) {
 	LOGD("Enter func : %s", __FUNCTION__);
 	if (!jinpcm || !joutpcm) {
-		LOGE("filename is null");
+		LOGE("error filename is null");
 		return JNI_FALSE;
 	}
 	if(jchannelNumber!=1 && jchannelNumber!=2){
-		LOGE("jchannelNumber is %d", jchannelNumber);
+		LOGE("error jchannelNumber is %d", jchannelNumber);
 		return JNI_FALSE;
 	}
-
+	if(jBytesPerSample!=1 && jBytesPerSample!=2){
+		LOGE("error jBytesPerSample is %d", jBytesPerSample);
+		return JNI_FALSE;
+	}
 	FILE *ifp, *ofp;
 
+	long iflen = 0, nSetup = 0;
 	spx_int32_t i;
-	float f;
 	spx_int32_t noisesuppress;
 	SpeexPreprocessState *st;
 	size_t actual_len = 0;
@@ -45,31 +49,29 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		return JNI_FALSE;
 	}
 
-	int frameSize = jsamRate * FRAMESIZE_MS / 1000;
+	int nBytesPerSecond = jsamRate * jchannelNumber * jBytesPerSample;
+	int m_nBytesPerFrame = nBytesPerSecond / 100;
+	int bufSize = m_nBytesPerFrame;
 
-	int bufSize = frameSize * 2;//sample deep is 16 bits
-	//分配内存空间
-	int8_t *src_all = new int8_t[bufSize];
-	if(!src_all){
+//	fseek(ifp,0L,SEEK_END);
+//	iflen = ftell(ifp);
+//	fseek(ifp,0L,SEEK_SET);
+//
+//	nSetup = iflen / m_nBytesPerFrame;
+
+	//鍒嗛厤鍐呭瓨绌洪棿
+	int8_t *procbuf = new int8_t[bufSize];
+	if(!procbuf){
 		LOGE("no src memory");
 		return JNI_FALSE;
 	}
-	LOGD("func-: %s,,sampleRate: %d,,channel: %d,,frameSize: %d,,bufSize: %d", __FUNCTION__, jsamRate, jchannelNumber, frameSize, bufSize);
+	LOGD("func-: %s,,sampleRate: %d,,bytesPerSample: %d,,channel: %d,,frameSize: %d,,bufSize: %d",
+			__FUNCTION__, jsamRate, jBytesPerSample, jchannelNumber, m_nBytesPerFrame, bufSize);
 
-	st = speex_preprocess_state_init(frameSize, jsamRate);
+	st = speex_preprocess_state_init(m_nBytesPerFrame / sizeof(short), jsamRate);
 
 	i=1;
 	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &i);
-	i=0;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &i);
-	i=jsamRate;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &i);
-	i=0;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DEREVERB, &i);
-	f=.0;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DEREVERB_DECAY, &f);
-	f=.0;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DEREVERB_LEVEL, &f);
 
 	noisesuppress = (spx_int32_t)jnoiseSuppress;
 	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noisesuppress);
@@ -84,24 +86,40 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 	LOGD("func : %s,,noisesuppress: %d", __FUNCTION__,  noisesuppress);
 //	}
 
+//	FILE *dmpfp = fopen("/sdcard/DCIM/pcm_data.txt", "wb");
 	for (;;) {
-		//从文件读取数据
-		actual_len = fread(src_all, sizeof(int8_t), bufSize, ifp);
-		if (!actual_len) {
-			//数据已经读取完毕
+		//浠庢枃浠惰鍙栨暟鎹�
+		actual_len = fread(procbuf, sizeof(int8_t), bufSize, ifp);
+		if (feof(ifp)) {
+			//鏁版嵁宸茬粡璇诲彇瀹屾瘯
 			break;
 		}
 //		if (Channels == 1) {
-			speex_preprocess_run(st, (spx_int16_t*) src_all);
+			speex_preprocess_run(st, (short*)procbuf);
 //		} else {
 //		}
-		fwrite(src_all, sizeof(int8_t), actual_len, ofp);
+//#define LN 16
+//			char str[LN]={0};
+//			for(int i=0; i<actual_len / 2; i++){
+//				sprintf(str,"%d,", procbuf[i]);
+//				fwrite(str, 1, LN, dmpfp);
+//				if(procBuf[i]>MAX_CH){
+//				if(i<50)
+//					LOGD("func : %s,,maxV: %d", __FUNCTION__,  procBuf[i]);
+//					procbuf[i] = MAX_CH;
+//				}else if(procBuf[i]<-(MAX_CH+1)){
+//					LOGD("func : %s,,minV: %d", __FUNCTION__,  procBuf[i]);
+//					procbuf[i] = -(MAX_CH+1);
+//				}
+//			}
+		fwrite(procbuf, sizeof(int8_t), actual_len, ofp);
 	}
+//	fclose(dmpfp);
 
-	//释放空间
-	delete []src_all;
+	//閲婃斁绌洪棿
+	delete []procbuf;
 
-	//关闭文件
+	//鍏抽棴鏂囦欢
 	fclose(ifp);
 	fclose(ofp);
 

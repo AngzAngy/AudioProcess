@@ -10,7 +10,7 @@
 typedef struct CallbackCntxt_ {
     SLuint32   size;
     SLint8*   pDataBase;    // Base address of local audio data storage
-    SLint8*   pData;        // Current address of local audio data storage
+//    SLint8*   pData;        // Current address of local audio data storage
     FILE *pfile;
     bool isFirst;
 } CallbackCntxt;
