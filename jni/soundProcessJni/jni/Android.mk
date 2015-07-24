@@ -1,7 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := speex_jni
+LOCAL_MODULE := kuwosoundprocess
 
 MY_SRC := ./../../speex-1.2rc1/libspeex
 

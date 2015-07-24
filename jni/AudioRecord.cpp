@@ -62,13 +62,68 @@ void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pConte
 
 }
 
-AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm, int minBufferSize):
+SLuint32 AudioRecord::convertSLSamplerate(int sampleRate){
+     switch(sampleRate) {
+     case 8000:
+         return SL_SAMPLINGRATE_8;
+         break;
+     case 11025:
+         return SL_SAMPLINGRATE_11_025;
+         break;
+     case 16000:
+         return SL_SAMPLINGRATE_16;
+         break;
+     case 22050:
+         return SL_SAMPLINGRATE_22_05;
+         break;
+     case 24000:
+         return SL_SAMPLINGRATE_24;
+         break;
+     case 32000:
+         return SL_SAMPLINGRATE_32;
+         break;
+     case 44100:
+         return SL_SAMPLINGRATE_44_1;
+         break;
+     case 48000:
+         return SL_SAMPLINGRATE_48;
+         break;
+     case 64000:
+         return SL_SAMPLINGRATE_64;
+         break;
+     case 88200:
+         return SL_SAMPLINGRATE_88_2;
+         break;
+     case 96000:
+         return SL_SAMPLINGRATE_96;
+         break;
+     case 192000:
+         return SL_SAMPLINGRATE_192;
+         break;
+     default:
+         return -1;
+     }
+ }
+AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSample, int channelNumbre, int minBufferSize):
         engineObject(NULL),engineEngine(NULL),recorderObject(NULL),
         recordItf(NULL),recBuffQueueItf(NULL),configItf(NULL){
-    SLEngineOption EngineOption[] = {
-                {(SLuint32) SL_ENGINEOPTION_THREADSAFE, (SLuint32) SL_BOOLEAN_TRUE}
-        };
     SLresult result;
+    SLEngineOption EngineOption[] = {
+                {(SLuint32) SL_ENGINEOPTION_THREADSAFE, (SLuint32) SL_BOOLEAN_TRUE}};
+
+    SLDataFormat_PCM format_pcm;
+    format_pcm.formatType = SL_DATAFORMAT_PCM;
+    format_pcm.numChannels = channelNumbre;
+    format_pcm.samplesPerSec = convertSLSamplerate(sampleRate);
+    format_pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_16;
+    format_pcm.containerSize = 16;
+    if(channelNumbre==2){
+        format_pcm.channelMask = SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT;
+    }else{
+        format_pcm.channelMask = SL_SPEAKER_FRONT_CENTER;
+    }
+    format_pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
+
     memset(&ctx,0, sizeof(CallbackCntxt));
     ctx.isFirst=true;
 
@@ -107,7 +162,7 @@ AudioRecord::AudioRecord(const char *fileName, SLDataFormat_PCM pcm, int minBuff
                 NB_BUFFERS_IN_QUEUE
         };
 
-        SLDataSink dataSink = { &recBufferQueue, &pcm };
+        SLDataSink dataSink = { &recBufferQueue, &format_pcm };
         SLInterfaceID iids[NUM_EXPLICIT_INTERFACES_FOR_RECORDER] = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE, SL_IID_ANDROIDCONFIGURATION};
         SLboolean required[NUM_EXPLICIT_INTERFACES_FOR_RECORDER] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 

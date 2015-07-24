@@ -13,11 +13,12 @@ public class AudioRecordJni {
     
     /**
      * @param fileName you save audio file.The file MUST be exist and can be accessed.
-     * @param channel @see CHANNEL_1 @see CHANNEL_2
      * @param sampleRate audio sample rate(eg 44100)
+     * @param bytesPerSample number bytes of one sample,MUST 1 or 2
+     * @param channel @see CHANNEL_1 @see CHANNEL_2
      */
-    public AudioRecordJni(String fileName, int channel, int sampleRate, int minBufferSize){
-        mNativeObj = init(fileName, channel, sampleRate, minBufferSize);
+    public AudioRecordJni(String fileName, int sampleRate, int bytePerSample, int channel, int minBufferSize){
+        mNativeObj = init(fileName, sampleRate, bytePerSample, channel, minBufferSize);
     }
     
     public  void start(){
@@ -42,7 +43,7 @@ public class AudioRecordJni {
         }
     }
 
-    private static native long init(String fileName, int ch, int sampleRate, int minBufferSize);
+    private static native long init(String fileName, int sampleRate, int bytesPerSample, int channel, int minBufferSize);
     private static native void start(long nativeObj);
     private static native void pause(long nativeObj);
     private static native void stop(long nativeObj);

@@ -2,7 +2,7 @@ package com.audio.jni;
 
 public class AudioPreprocessJni {
     static {
-        System.loadLibrary("speex_jni");
+        System.loadLibrary("kuwosoundprocess");
     }
 	public AudioPreprocessJni() {
 	}

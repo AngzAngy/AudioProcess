@@ -17,13 +17,14 @@ typedef struct CallbackCntxt_ {
 
 class AudioRecord{
 public:
-    AudioRecord(const char *fileName, SLDataFormat_PCM dataFormat_PCM, int minBufferSize);
+    AudioRecord(const char *fileName, int sampleRate, int bytesPerSample, int channelNumbre, int minBufferSize);
     ~AudioRecord();
     void start();
     void pause();
     void stop();
     void release();
 private:
+    static SLuint32 convertSLSamplerate(int sampleRate);
     CallbackCntxt ctx;
 
     // engine interfaces

@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
-  (JNIEnv *, jobject, jstring, jint, jint, jint);
+  (JNIEnv *, jobject, jstring, jint, jint, jint, jint);
 
 JNIEXPORT void JNICALL Java_com_audio_jni_AudioRecordJni_start
   (JNIEnv *, jobject, jlong);
