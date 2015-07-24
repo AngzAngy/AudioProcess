@@ -50,6 +50,7 @@ LOCAL_SRC_FILES := $(MY_SRC)/bits.c \
 		$(MY_SRC)/vbr.c \
 		$(MY_SRC)/vq.c \
 		$(MY_SRC)/window.c \
+		SoundPreprocessor.cpp \
 		AudioPreprocessJni.cpp
 
 LOCAL_LDLIBS := -llog

@@ -1,6 +1,6 @@
 #include "AudioPreprocessJni.h"
 #include "jnilogger.h"
-#include "speex/speex_preprocess.h"
+#include "SoundPreprocessor.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -27,10 +27,10 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 	}
 	FILE *ifp, *ofp;
 
-	long iflen = 0, nSetup = 0;
-	spx_int32_t i;
-	spx_int32_t noisesuppress;
-	SpeexPreprocessState *st;
+//	long iflen = 0, nSetup = 0;
+//	spx_int32_t i;
+//	spx_int32_t noisesuppress;
+//	SpeexPreprocessState *st;
 	size_t actual_len = 0;
 
 	const char* utf8in = env->GetStringUTFChars(jinpcm, NULL);
@@ -49,10 +49,15 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		return JNI_FALSE;
 	}
 
-	int nBytesPerSecond = jsamRate * jchannelNumber * jBytesPerSample;
-	int m_nBytesPerFrame = nBytesPerSecond / 100;
-	int bufSize = m_nBytesPerFrame;
+	SoundPreprocessor pro(jsamRate, jBytesPerSample, jchannelNumber, -20);
+//	int nBytesPerSecond = jsamRate * jchannelNumber * jBytesPerSample;
+	int bufSize = pro.getBytesPerFrame();
 
+	if(bufSize<=0){
+		LOGE("error getBytesPerFrame: %d",bufSize);
+		env->ReleaseStringUTFChars(joutpcm, utf8out);
+		return JNI_FALSE;
+	}
 //	fseek(ifp,0L,SEEK_END);
 //	iflen = ftell(ifp);
 //	fseek(ifp,0L,SEEK_SET);
@@ -65,16 +70,16 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		LOGE("no src memory");
 		return JNI_FALSE;
 	}
-	LOGD("func-: %s,,sampleRate: %d,,bytesPerSample: %d,,channel: %d,,frameSize: %d,,bufSize: %d",
-			__FUNCTION__, jsamRate, jBytesPerSample, jchannelNumber, m_nBytesPerFrame, bufSize);
+	LOGD("func-: %s,,sampleRate: %d,,bytesPerSample: %d,,channel: %d,,bufSize: %d",
+			__FUNCTION__, jsamRate, jBytesPerSample, jchannelNumber, bufSize);
 
-	st = speex_preprocess_state_init(m_nBytesPerFrame / sizeof(short), jsamRate);
+//	st = speex_preprocess_state_init(m_nBytesPerFrame / sizeof(short), jsamRate);
 
-	i=1;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &i);
+//	i=1;
+//	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &i);
 
-	noisesuppress = (spx_int32_t)jnoiseSuppress;
-	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noisesuppress);
+//	noisesuppress = (spx_int32_t)jnoiseSuppress;
+//	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noisesuppress);
 
 //	spx_int32_t maxAttenuationNoise = 0, noisesuppress = 0;
 //	speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_NOISE_SUPPRESS, &maxAttenuationNoise);
@@ -83,7 +88,7 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 //	if(noisesuppress<0){
 //	noisesuppress = -10;
 //	speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noisesuppress);
-	LOGD("func : %s,,noisesuppress: %d", __FUNCTION__,  noisesuppress);
+//	LOGD("func : %s,,noisesuppress: %d", __FUNCTION__,  noisesuppress);
 //	}
 
 //	FILE *dmpfp = fopen("/sdcard/DCIM/pcm_data.txt", "wb");
@@ -95,7 +100,7 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 			break;
 		}
 //		if (Channels == 1) {
-			speex_preprocess_run(st, (short*)procbuf);
+		pro.preprocess(procbuf, actual_len);
 //		} else {
 //		}
 //#define LN 16
@@ -123,7 +128,7 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 	fclose(ifp);
 	fclose(ofp);
 
-	speex_preprocess_state_destroy(st);
+//	speex_preprocess_state_destroy(st);
 
 	env->ReleaseStringUTFChars(jinpcm, utf8in);
 	env->ReleaseStringUTFChars(joutpcm, utf8out);
