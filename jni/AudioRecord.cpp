@@ -18,6 +18,15 @@
 //int8_t pcmData[NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES];
 
 /* Callback for recording buffer queue events */
+
+#define ORG_SOUND
+
+#ifdef ORG_SOUND
+#include <string>
+static FILE *gorgfile = NULL;
+using namespace std;
+#endif
+
 void recCallback(SLRecordItf caller, void *pContext, SLuint32 event) {
 	if (SL_RECORDEVENT_HEADATNEWPOS & event) {
 		SLmillisecond pMsec = 0;
@@ -44,6 +53,14 @@ void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pConte
 	{
 		/* Save the recorded data  */
 //		fwrite(pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES, 1, pCntxt->pfile);
+#ifdef ORG_SOUND
+		if(gorgfile){
+			fwrite(pCntxt->pDataBase, pCntxt->size, 1, gorgfile);
+		}
+#endif
+		if(pCntxt->mPreproc){
+			pCntxt->mPreproc->preprocess(pCntxt->pDataBase, pCntxt->size);
+		}
 		fwrite(pCntxt->pDataBase, pCntxt->size, 1, pCntxt->pfile);
 	}
 
@@ -125,7 +142,7 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
     format_pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
 
     memset(&ctx,0, sizeof(CallbackCntxt));
-    ctx.isFirst=true;
+//    ctx.isFirst=true;
 
     if(!fileName){
         LOGE("FileName NULL");
@@ -136,6 +153,11 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
         LOGE("Open file error");
         return;
     }
+#ifdef ORG_SOUND
+    string orgfn(fileName);
+    orgfn+=".org";
+    gorgfile = fopen(orgfn.c_str(), "w");
+#endif
     result = slCreateEngine(&engineObject, 1, EngineOption, 0, NULL, NULL);
     assert(SL_RESULT_SUCCESS == result);
 
@@ -206,6 +228,10 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
 
         /* Initialize the callback and its context for the recording buffer queue */
 
+        ctx.mPreproc = new SoundPreprocessor(sampleRate, bytesPerSample, channelNumbre, minBufferSize);
+        if(ctx.mPreproc!=NULL){
+        	minBufferSize = ctx.mPreproc->getBytesPerFrame();
+        }
         ctx.pDataBase = new SLint8[minBufferSize];//(int8_t*) &pcmData;
 //        ctx.pData = ctx.pDataBase;
         ctx.size = minBufferSize * sizeof(SLint8);
@@ -221,6 +247,7 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
 //            ctx.pData += BUFFER_SIZE_IN_BYTES;
 //        }
 //        ctx.pData = ctx.pDataBase;
+
 }
 
 AudioRecord::~AudioRecord(){
@@ -294,6 +321,10 @@ void AudioRecord::release(){
     	delete [](ctx.pDataBase);
     	ctx.pDataBase=NULL;
     }
-    ctx.isFirst=true;
+    if(ctx.mPreproc != NULL){
+    	delete ctx.mPreproc;
+    	ctx.mPreproc = NULL;
+    }
+//    ctx.isFirst=true;
     LOGI("release record");
 }

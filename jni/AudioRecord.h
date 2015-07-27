@@ -4,6 +4,8 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
+#include "SoundPreprocessor.h"
+
 #ifndef __AudioRecord_H_
 #define __AudioRecord_H_
 
@@ -12,7 +14,8 @@ typedef struct CallbackCntxt_ {
     SLint8*   pDataBase;    // Base address of local audio data storage
 //    SLint8*   pData;        // Current address of local audio data storage
     FILE *pfile;
-    bool isFirst;
+//    bool isFirst;
+    SoundPreprocessor *mPreproc;
 } CallbackCntxt;
 
 class AudioRecord{
