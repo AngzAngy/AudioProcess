@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Process;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.audio.jni.AudioPreprocessJni;
@@ -17,22 +18,28 @@ import com.audio.jni.AudioRecordJni;
 public class AudioPlayerActivity extends Activity implements
 		View.OnClickListener {
 	private final static String TAG = AudioPlayerActivity.class.getSimpleName();
+	private final static int LEVELS[]={-2,-4,-6,-8,-10,-12,-14,-16,-18,-20};
 	private String mSaveFileName;
 	private String mDenoiseFileName;
 	private int sampleRate;
 	private int channel;
 	private AudioRecordJni mRecordJni;
+	private int mDenoiseLevelIndex ;
+	private EditText mDenoiseInput;
 
 	@Override
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
 		channel = 1;
+		mDenoiseLevelIndex = LEVELS.length;
 		setContentView(R.layout.main);
 		findViewById(R.id.start_recoard).setOnClickListener(this);
 		findViewById(R.id.pause_recoard).setOnClickListener(this);
 		findViewById(R.id.stop_recoard).setOnClickListener(this);
 		findViewById(R.id.denoise_recoard).setOnClickListener(this);
 		findViewById(R.id.play_recoard).setOnClickListener(this);
+		findViewById(R.id.play_denoise).setOnClickListener(this);
+		mDenoiseInput = (EditText)findViewById(R.id.input_denoise_level);
 		mSaveFileName = getBufferDir()+"/myorig_"+channel+"ch.pcm";
 		mDenoiseFileName = getBufferDir()+"/myproc_"+channel+"ch.pcm";
 		sampleRate = 44100;
@@ -90,6 +97,17 @@ public class AudioPlayerActivity extends Activity implements
 		case R.id.denoise_recoard:
 			Thread t = new Thread(){
 				public void run(){
+					String inputStr = mDenoiseInput.getText().toString();
+					if(inputStr!=null && inputStr.length()>0){
+						try{
+							int idx = Integer.parseInt(inputStr);
+							if(idx<LEVELS.length){
+								mDenoiseLevelIndex = idx;
+							}
+						}catch(NumberFormatException e){
+							e.printStackTrace();
+						}
+					}
 //					int minBufferSize = 0;
 //					if (channel == 1) {
 //						minBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
@@ -99,7 +117,7 @@ public class AudioPlayerActivity extends Activity implements
 //					for(int i=-50;i<-1;i++){
 //					int i = -1;
 //						mDenoiseFileName = getBufferDir()+"/myproc_"+i+".pcm";
-						AudioPreprocessJni.preprocess(mSaveFileName, mDenoiseFileName, sampleRate, 2, channel, -20);
+						AudioPreprocessJni.preprocess(mSaveFileName, mDenoiseFileName, sampleRate, 2, channel, LEVELS[mDenoiseLevelIndex]);
 //					}
 					runOnUiThread(new Runnable() {
 						
@@ -125,6 +143,20 @@ public class AudioPlayerActivity extends Activity implements
 			}
 
 			track.play();
+			break;
+		case R.id.play_denoise:
+			MyAudioTrack trackNenoise = null;
+			if (channel == 1) {
+				trackNenoise = new MyAudioTrack(sampleRate,
+						AudioFormat.CHANNEL_OUT_MONO,
+						AudioFormat.ENCODING_PCM_16BIT, mDenoiseFileName);
+			} else {
+				trackNenoise = new MyAudioTrack(sampleRate,
+						AudioFormat.CHANNEL_OUT_STEREO,
+						AudioFormat.ENCODING_PCM_16BIT, mDenoiseFileName);
+			}
+
+			trackNenoise.play();
 			break;
 		}
 	}

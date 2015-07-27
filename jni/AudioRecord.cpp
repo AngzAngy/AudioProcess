@@ -19,7 +19,7 @@
 
 /* Callback for recording buffer queue events */
 
-#define ORG_SOUND
+//#define ORG_SOUND
 
 #ifdef ORG_SOUND
 #include <string>
@@ -58,9 +58,9 @@ void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pConte
 			fwrite(pCntxt->pDataBase, pCntxt->size, 1, gorgfile);
 		}
 #endif
-		if(pCntxt->mPreproc){
-			pCntxt->mPreproc->preprocess(pCntxt->pDataBase, pCntxt->size);
-		}
+//		if(pCntxt->mPreproc){
+//			pCntxt->mPreproc->preprocess(pCntxt->pDataBase, pCntxt->size);
+//		}
 		fwrite(pCntxt->pDataBase, pCntxt->size, 1, pCntxt->pfile);
 	}
 
@@ -228,7 +228,7 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
 
         /* Initialize the callback and its context for the recording buffer queue */
 
-        ctx.mPreproc = new SoundPreprocessor(sampleRate, bytesPerSample, channelNumbre, minBufferSize);
+        ctx.mPreproc = NULL;//new SoundPreprocessor(sampleRate, bytesPerSample, channelNumbre, DEFAULT_DENOISE_LEVEL);
         if(ctx.mPreproc!=NULL){
         	minBufferSize = ctx.mPreproc->getBytesPerFrame();
         }

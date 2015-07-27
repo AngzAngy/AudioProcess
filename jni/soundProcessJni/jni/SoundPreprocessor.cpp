@@ -8,9 +8,9 @@ int SoundPreprocessor::getBytesPerFrame(int sampleRate, int bytesPerSample, int 
 	return nBytesPerFrame;
 }
 
-SoundPreprocessor::SoundPreprocessor(int sampleRate, int bytesPerSample, int channelNumber, int minBufferSize){
+SoundPreprocessor::SoundPreprocessor(int sampleRate, int bytesPerSample, int channelNumber, int denoiseLevel){
 	spx_int32_t i=1;
-	spx_int32_t noisesuppress=-20;
+	spx_int32_t noisesuppress=(spx_int32_t)denoiseLevel;
 
 	mBytesPerFrame = getBytesPerFrame(sampleRate, bytesPerSample, channelNumber);
 

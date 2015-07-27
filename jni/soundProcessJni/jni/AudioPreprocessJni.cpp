@@ -49,7 +49,7 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		return JNI_FALSE;
 	}
 
-	SoundPreprocessor pro(jsamRate, jBytesPerSample, jchannelNumber, -20);
+	SoundPreprocessor pro(jsamRate, jBytesPerSample, jchannelNumber, jnoiseSuppress);
 //	int nBytesPerSecond = jsamRate * jchannelNumber * jBytesPerSample;
 	int bufSize = pro.getBytesPerFrame();
 
@@ -70,8 +70,8 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 		LOGE("no src memory");
 		return JNI_FALSE;
 	}
-	LOGD("func-: %s,,sampleRate: %d,,bytesPerSample: %d,,channel: %d,,bufSize: %d",
-			__FUNCTION__, jsamRate, jBytesPerSample, jchannelNumber, bufSize);
+	LOGD("func-: %s,,sampleRate: %d,,bytesPerSample: %d,,channel: %d,,bufSize: %d,,noiseSuppress: %d",
+			__FUNCTION__, jsamRate, jBytesPerSample, jchannelNumber, bufSize, jnoiseSuppress);
 
 //	st = speex_preprocess_state_init(m_nBytesPerFrame / sizeof(short), jsamRate);
 

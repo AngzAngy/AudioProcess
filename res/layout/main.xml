@@ -24,17 +24,36 @@
         android:text="停止录音"
          />
         
-       <Button
-        android:id="@+id/denoise_recoard"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="录音去噪"
-         />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            >
+	       <Button
+	        android:id="@+id/denoise_recoard"
+	        android:layout_width="wrap_content"
+	        android:layout_height="wrap_content"
+	        android:text="录音去噪"
+	         />
+	       <EditText
+	           android:id="@+id/input_denoise_level"
+	           android:layout_width="wrap_content"
+	           android:layout_height="wrap_content"
+	           android:hint="去噪强度(0-9整数)"
+	           android:digits="123456789"
+	           />
+       </LinearLayout>
 
             <Button
         android:id="@+id/play_recoard"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="播放录音"
+        android:text="播放原声"
+         />
+      <Button
+        android:id="@+id/play_denoise"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="播放去噪音"
          />
 </LinearLayout>

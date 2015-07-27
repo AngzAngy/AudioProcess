@@ -61,5 +61,5 @@ LOCAL_LDLIBS := -llog  -landroid -lz -lOpenSLES
 
 include $(BUILD_SHARED_LIBRARY)
 
-#include $(MY_PATH)/soundProcessJni/jni/Android.mk
+include $(MY_PATH)/soundProcessJni/jni/Android.mk
 #include $(MY_PATH)/soundeffect/jni/Android.mk
