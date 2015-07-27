@@ -99,10 +99,11 @@ JNIEXPORT jboolean JNICALL Java_com_audio_jni_AudioPreprocessJni_preprocess(
 			//鏁版嵁宸茬粡璇诲彇瀹屾瘯
 			break;
 		}
-//		if (Channels == 1) {
-		pro.preprocess(procbuf, actual_len);
-//		} else {
-//		}
+		if(actual_len == bufSize){
+			pro.preprocess(procbuf, actual_len);
+		}else{
+			LOGD("func : %s,,not process,,actual_len:%d,,bufSize:%d", __FUNCTION__,actual_len, bufSize);
+		}
 //#define LN 16
 //			char str[LN]={0};
 //			for(int i=0; i<actual_len / 2; i++){

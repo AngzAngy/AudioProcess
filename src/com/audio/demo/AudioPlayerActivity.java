@@ -31,7 +31,7 @@ public class AudioPlayerActivity extends Activity implements
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
 		channel = 1;
-		mDenoiseLevelIndex = LEVELS.length;
+		mDenoiseLevelIndex = LEVELS.length-1;
 		setContentView(R.layout.main);
 		findViewById(R.id.start_recoard).setOnClickListener(this);
 		findViewById(R.id.pause_recoard).setOnClickListener(this);
@@ -41,6 +41,7 @@ public class AudioPlayerActivity extends Activity implements
 		findViewById(R.id.play_denoise).setOnClickListener(this);
 		mDenoiseInput = (EditText)findViewById(R.id.input_denoise_level);
 		mSaveFileName = getBufferDir()+"/myorig_"+channel+"ch.pcm";
+//		mSaveFileName = getBufferDir()+"/myorig.pcm";
 		mDenoiseFileName = getBufferDir()+"/myproc_"+channel+"ch.pcm";
 		sampleRate = 44100;
 	}
@@ -97,7 +98,7 @@ public class AudioPlayerActivity extends Activity implements
 		case R.id.denoise_recoard:
 			Thread t = new Thread(){
 				public void run(){
-					String inputStr = mDenoiseInput.getText().toString();
+					String inputStr = mDenoiseInput.getText().toString().trim();
 					if(inputStr!=null && inputStr.length()>0){
 						try{
 							int idx = Integer.parseInt(inputStr);

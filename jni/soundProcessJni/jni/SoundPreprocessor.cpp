@@ -40,8 +40,10 @@ int SoundPreprocessor::preprocess(void *buf, int size){
 				speex_preprocess_run(mpSpStat, (short *)pTmp);
 				pTmp += mBytesPerFrame;
 			}
-		}else{
+		}else if(size == mBytesPerFrame){
 			speex_preprocess_run(mpSpStat, (short *)pTmp);
+		}else{
+			LOGD("func : %s,,not process,,bytesPerFrame:%d < bufSize:%d", __FUNCTION__,mBytesPerFrame, size);
 		}
 		return size;
 	}else{
