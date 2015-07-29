@@ -1,6 +1,7 @@
 #include "AudioRecord.h"
 #include "jnilogger.h"
 #include <stdlib.h>
+#include<fcntl.h>
 /* Size of the recording buffer queue */
 #define NB_BUFFERS_IN_QUEUE 1
 
@@ -42,28 +43,35 @@ void recCallback(SLRecordItf caller, void *pContext, SLuint32 event) {
 }
 
 /* Callback for recording buffer queue events */
-void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pContext) {
+void AudioRecord::recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pContext) {
 
-	CallbackCntxt *pCntxt = (CallbackCntxt*) pContext;
+	AudioRecord *pCntxt = (AudioRecord*) pContext;
 
 //	if(pCntxt->isFirst){
 //		LOGI("first recBufferQueueCallback");
 //		pCntxt->isFirst = false;
 //	}else
-	{
+//	{
 		/* Save the recorded data  */
 //		fwrite(pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES, 1, pCntxt->pfile);
 #ifdef ORG_SOUND
 		if(gorgfile){
-			fwrite(pCntxt->pDataBase, pCntxt->size, 1, gorgfile);
+			fwrite(pCntxt->pDataBase, pCntxt->bufSize, sizeof(int8_t), gorgfile);
 		}
 #endif
-//		if(pCntxt->mPreproc){
-//			pCntxt->mPreproc->preprocess(pCntxt->pDataBase, pCntxt->size);
-//		}
-		fwrite(pCntxt->pDataBase, pCntxt->size, 1, pCntxt->pfile);
-	}
+		if(pCntxt->pfile){
+			fwrite(pCntxt->pDataBase, pCntxt->bufSize, sizeof(int8_t), pCntxt->pfile);
+		}
 
+		if(pCntxt->mFrameCallback){
+			pCntxt->mFrameCallback(pCntxt->pDataBase, (pCntxt->bufSize)*sizeof(int8_t), pCntxt->mUserData);
+		}
+
+	LOGI("recordbufEnqueue,,bufsize: %d", pCntxt->bufSize);
+
+//	}
+
+//	pCntxt->isCanRead = true;
 	/* Increase data pointer by buffer size */
 //	pCntxt->pData += BUFFER_SIZE_IN_BYTES;
 //
@@ -72,7 +80,7 @@ void recBufferQueueCallback(SLAndroidSimpleBufferQueueItf queueItf, void *pConte
 //	}
 
 //	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES);
-	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, pCntxt->size);
+	(*queueItf)->Enqueue(queueItf, pCntxt->pDataBase, pCntxt->bufSize);
 
 	SLAndroidSimpleBufferQueueState recQueueState;
 	(*queueItf)->GetState(queueItf, &recQueueState);
@@ -123,7 +131,9 @@ SLuint32 AudioRecord::convertSLSamplerate(int sampleRate){
  }
 AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSample, int channelNumbre, int minBufferSize):
         engineObject(NULL),engineEngine(NULL),recorderObject(NULL),
-        recordItf(NULL),recBuffQueueItf(NULL),configItf(NULL){
+        recordItf(NULL),recBuffQueueItf(NULL),configItf(NULL),
+        bufSize(0), pDataBase(NULL), /*baseOffset(0), miniSize(0), */pfile(NULL)/*, isCanRead(false)*/,
+        mFrameCallback(NULL),mUserData(NULL){
     SLresult result;
     SLEngineOption EngineOption[] = {
                 {(SLuint32) SL_ENGINEOPTION_THREADSAFE, (SLuint32) SL_BOOLEAN_TRUE}};
@@ -141,17 +151,14 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
     }
     format_pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
 
-    memset(&ctx,0, sizeof(CallbackCntxt));
-//    ctx.isFirst=true;
-
-    if(!fileName){
-        LOGE("FileName NULL");
-        return;
-    }
-    ctx.pfile = fopen(fileName, "w");
-    if(!(ctx.pfile)){
-        LOGE("Open file error");
-        return;
+    if(fileName){
+		pfile = fopen(fileName, "w");
+		if(!pfile){
+			LOGE("Open file error,,fileName: %s", fileName);
+			return;
+		}
+    }else{
+    	LOGI("not write file in native");
     }
 #ifdef ORG_SOUND
     string orgfn(fileName);
@@ -227,16 +234,14 @@ AudioRecord::AudioRecord(const char *fileName, int sampleRate, int bytesPerSampl
         assert(SL_RESULT_SUCCESS == result);
 
         /* Initialize the callback and its context for the recording buffer queue */
+//        miniSize = minBufferSize;
+        bufSize = minBufferSize * sizeof(int8_t);
+        pDataBase = (int8_t*)malloc(bufSize);
+//        baseOffset = 0;
 
-        ctx.mPreproc = NULL;//new SoundPreprocessor(sampleRate, bytesPerSample, channelNumbre, DEFAULT_DENOISE_LEVEL);
-        if(ctx.mPreproc!=NULL){
-        	minBufferSize = ctx.mPreproc->getBytesPerFrame();
-        }
-        ctx.pDataBase = new SLint8[minBufferSize];//(int8_t*) &pcmData;
-//        ctx.pData = ctx.pDataBase;
-        ctx.size = minBufferSize * sizeof(SLint8);
-        result = (*recBuffQueueItf)->RegisterCallback(recBuffQueueItf, recBufferQueueCallback, &ctx);
+        result = (*recBuffQueueItf)->RegisterCallback(recBuffQueueItf, recBufferQueueCallback, this);
         assert(SL_RESULT_SUCCESS == result);
+
 //
 //        /* Enqueue buffers to map the region of memory allocated to store the recorded data */
 //        LOGI("Enqueueing buffer ");
@@ -267,7 +272,10 @@ void AudioRecord::start(){
 //        for (int i = 0; i < NB_BUFFERS_IN_QUEUE; i++) {
 //            LOGI("%d ", i);
 //            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pData, BUFFER_SIZE_IN_BYTES);
-            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, ctx.pDataBase, ctx.size);
+//    	if(baseOffset > bufSize){
+//    		baseOffset = 0;
+//    	}
+            result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, pDataBase, bufSize);
             assert(SL_RESULT_SUCCESS == result);
 //            ctx.pData += BUFFER_SIZE_IN_BYTES;
 //        }
@@ -281,6 +289,7 @@ void AudioRecord::start(){
 }
 void AudioRecord::pause(){
     SLresult result;
+//    isCanRead = false;
     if (recordItf != NULL) {
         result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_PAUSED);
         assert(SL_RESULT_SUCCESS == result);
@@ -288,6 +297,7 @@ void AudioRecord::pause(){
     }
 }
 void AudioRecord::stop(){
+//	isCanRead = false;
     if (recordItf != NULL) {
         SLresult result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_STOPPED);
         assert(SL_RESULT_SUCCESS == result);
@@ -295,7 +305,18 @@ void AudioRecord::stop(){
     }
 }
 
+void AudioRecord::setOnFrameCallback(onFrameCallback cb, void* userData){
+	mFrameCallback = cb;
+	mUserData = userData;
+}
+
+int AudioRecord::read(void *buf, int size){
+
+	return size;
+}
+
 void AudioRecord::release(){
+//	isCanRead = false;
     //destroy recorder object , and invlidate all associated interfaces
     if (recorderObject != NULL) {
         (*recorderObject)->Destroy(recorderObject);
@@ -313,18 +334,13 @@ void AudioRecord::release(){
     }
 
     //colse the file
-    if ((ctx.pfile != NULL)) {
-        fclose(ctx.pfile);
-        ctx.pfile == NULL;
+    if ((pfile != NULL)) {
+        fclose(pfile);
+        pfile == NULL;
     }
-    if((ctx.pDataBase != NULL)){
-    	delete [](ctx.pDataBase);
-    	ctx.pDataBase=NULL;
+    if(pDataBase != NULL){
+    	free(pDataBase);
+    	pDataBase=NULL;
     }
-    if(ctx.mPreproc != NULL){
-    	delete ctx.mPreproc;
-    	ctx.mPreproc = NULL;
-    }
-//    ctx.isFirst=true;
     LOGI("release record");
 }

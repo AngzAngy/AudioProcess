@@ -3,6 +3,10 @@
 #include "AudioRecord.h"
 #define L_2_OBJ(jl) AudioRecord *pObj = (AudioRecord *)(jl);
 
+#define NativeFrameCallback "nativeOnFrameCallback"
+#define NativeFrameCallbackSig "([BI)V"
+
+static JavaVM* gVM = NULL;
 //static SLuint32 convertSamplerate(int samplerate){
 //     switch(samplerate) {
 //     case 8000:
@@ -45,12 +49,44 @@
 //         return -1;
 //     }
 // }
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved){
+	JNIEnv* env = NULL;
+
+	if(vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK){
+	  return -1;
+	}
+
+	gVM = vm;
+	return JNI_VERSION_1_4; //这里很重要，必须返回版本，否则加载会失败。
+}
+
+static void jniOnFrameCallback(void *buf, int32_t size, void* userData){
+	OnFrameCallbackStruct *pCb = (OnFrameCallbackStruct*)userData;
+	JNIEnv *env=NULL;
+	if(pCb && gVM){
+		jobject cbObj = pCb->callbackObj;
+		if(cbObj){
+			gVM->AttachCurrentThread(&env, NULL);
+			if(env){
+				jbyteArray jbarray = env->NewByteArray(size);
+				env->SetByteArrayRegion(jbarray, 0, size, (const jbyte*)buf);
+
+				env->CallVoidMethod(cbObj, pCb->callbackMethodId, jbarray, size);
+
+				env->DeleteLocalRef(jbarray);
+			}
+			gVM->DetachCurrentThread();
+		}
+	}
+}
+
 JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
-  (JNIEnv *env, jobject jobj, jstring jstr, jint jsampleRate, jint jBytesPerSample, jint jchannel, jint jminBufSize){
-    if(!jstr){
-        LOGI("filename is null");
-        return 0;
-    }
+  (JNIEnv *env, jobject jobj, jobject referObj, jstring jstr, jint jsampleRate, jint jBytesPerSample, jint jchannel, jint jminBufSize){
+//    if(!jstr){
+//        LOGI("filename is null");
+//        return 0;
+//    }
     if(jchannel!=1 && jchannel!=2){
         LOGI("channel is error num:%d",jchannel);
         return 0;
@@ -60,7 +96,6 @@ JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
     	return 0;
     }
     LOGI("channelnum:%d,,sampleRate: %d,,bytesPerSample: %d,,minBufferSize: %d",jchannel, jsampleRate, jBytesPerSample, jminBufSize);
-    const char* utf8 = env->GetStringUTFChars(jstr, NULL);
 
 //    SLDataFormat_PCM format_pcm;
 //    format_pcm.formatType = SL_DATAFORMAT_PCM;
@@ -74,10 +109,22 @@ JNIEXPORT jlong JNICALL Java_com_audio_jni_AudioRecordJni_init
 //        format_pcm.channelMask = SL_SPEAKER_FRONT_CENTER;
 //    }
 //    format_pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
+    AudioRecord *pObj = NULL;
+    if(jstr){
+        const char* utf8 = env->GetStringUTFChars(jstr, NULL);
 
-    AudioRecord *pObj = new AudioRecord(utf8, jsampleRate, jBytesPerSample, jchannel, jminBufSize);
+    	pObj = new AudioRecord(utf8, jsampleRate, jBytesPerSample, jchannel, jminBufSize);
 
-    env->ReleaseStringUTFChars(jstr, utf8);
+    	env->ReleaseStringUTFChars(jstr, utf8);
+    }else{
+    	pObj = new AudioRecord(NULL, jsampleRate, jBytesPerSample, jchannel, jminBufSize);
+    }
+    if(pObj && referObj){
+    	OnFrameCallbackStruct *cbStruct = new OnFrameCallbackStruct;
+    	cbStruct->callbackObj = env->NewGlobalRef(referObj);
+    	cbStruct->callbackMethodId = env->GetMethodID(env->GetObjectClass(referObj), NativeFrameCallback, NativeFrameCallbackSig);
+    	pObj->setOnFrameCallback(jniOnFrameCallback, (void*)cbStruct);
+    }
     return (jlong)(pObj);
 }
 
@@ -106,10 +153,46 @@ JNIEXPORT void JNICALL Java_com_audio_jni_AudioRecordJni_stop
 }
 
 
+//JNIEXPORT jint JNICALL Java_com_audio_jni_AudioRecordJni_read
+//  (JNIEnv *env, jobject jobj, jlong jl, jbyteArray javaAudioData, jint offsetInBytes, jint sizeInBytes){
+//	jbyte* recordBuff = NULL;
+//
+//	L_2_OBJ(jl);
+//
+//	if (!javaAudioData) {
+//		LOGE("Invalid Java array to store recorded audio, can't record");
+//		return 0;
+//	}
+//	if (pObj == NULL) {
+//		LOGE("Unable to retrieve AudioRecord object, can't record");
+//		return 0;
+//	}
+//
+//	recordBuff = (jbyte *)env->GetByteArrayElements(javaAudioData, NULL);
+//	 if (recordBuff == NULL) {
+//		LOGE("Error retrieving destination for recorded audio data, can't record");
+//		return 0;
+//	}
+//
+//	// read the new audio data from the native AudioRecord object
+//	int readSize = pObj->read(recordBuff + offsetInBytes, sizeInBytes);
+//
+//	env->ReleaseByteArrayElements(javaAudioData, recordBuff, 0);
+//
+//	return readSize;
+//}
+
 JNIEXPORT void JNICALL Java_com_audio_jni_AudioRecordJni_release
   (JNIEnv *env, jobject jobj, jlong jl){
     L_2_OBJ(jl);
     if(pObj){
+    	OnFrameCallbackStruct *pCb = (OnFrameCallbackStruct*)pObj->getUserData();
+    	if(pCb){
+    		if(pCb->callbackObj){
+    			env->DeleteGlobalRef(pCb->callbackObj);
+    		}
+    		delete pCb;
+    	}
        delete pObj;
     }
 }

@@ -1,6 +1,9 @@
 package com.audio.demo;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.ArrayList;
 
 import android.app.Activity;
 import android.media.AudioFormat;
@@ -26,6 +29,7 @@ public class AudioPlayerActivity extends Activity implements
 	private AudioRecordJni mRecordJni;
 	private int mDenoiseLevelIndex ;
 	private EditText mDenoiseInput;
+	private ArrayList<byte[]> soundArrays = new ArrayList<byte[]>();
 
 	@Override
 	public void onCreate(Bundle icicle) {
@@ -81,7 +85,40 @@ public class AudioPlayerActivity extends Activity implements
 							sampleRate, 2, AudioRecordJni.CHANNEL_2, minBufferSize);
 				}
 			}
+			mRecordJni.setOnFrameCallback(new AudioRecordJni.OnFrameCallback() {
+				@Override
+				public void onFrameCallbackBuffer(byte[] data, int size) {
+					synchronized (soundArrays) {
+						soundArrays.add(data);
+						soundArrays.notify();
+					}
+				}
+			});
 			mRecordJni.start();
+			Thread t = new Thread(){
+				public void run(){
+					String readFileName = getBufferDir()+"/myread_"+channel+"ch.pcm";
+					try{
+						FileOutputStream fos = new FileOutputStream(readFileName);
+						while(mRecordJni!=null){
+							synchronized (soundArrays) {
+								if(soundArrays.size()>0){
+									byte []buf = soundArrays.remove(0);
+									if(buf!=null){
+										fos.write(buf);
+									}
+								}else{
+									soundArrays.wait();
+								}
+							}
+						}
+						fos.close();
+					}catch(Exception e){
+						e.printStackTrace();
+					}
+				}
+			};
+			t.start();
 			break;
 		case R.id.pause_recoard:
 			if (mRecordJni != null) {
@@ -94,9 +131,12 @@ public class AudioPlayerActivity extends Activity implements
 				mRecordJni.release();
 				mRecordJni = null;
 			}
+			synchronized (soundArrays) {
+				soundArrays.notify();
+			}
 			break;
 		case R.id.denoise_recoard:
-			Thread t = new Thread(){
+			Thread dt = new Thread(){
 				public void run(){
 					String inputStr = mDenoiseInput.getText().toString().trim();
 					if(inputStr!=null && inputStr.length()>0){
@@ -129,7 +169,7 @@ public class AudioPlayerActivity extends Activity implements
 					});
 				}
 			};
-			t.start();
+			dt.start();
 			break;
 		case R.id.play_recoard:
 			MyAudioTrack track = null;
